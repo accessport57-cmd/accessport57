@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AccessPort</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@400;600;800&family=Cairo:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0ea5e9;
+            --background-color: #0f172a;
+            --card-background: #1e293b;
+            --text-color: #cbd5e1;
+            --text-muted: #64748b;
+            --border-color: #334155;
+        }
+        body { font-family: 'Cairo', sans-serif; background-color: var(--background-color); color: var(--text-color); }
+        .header-title { font-family: 'Exo 2', sans-serif; }
+        .view { display: none; }
+        .view.active { display: block; animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .nav-btn { padding: 0.75rem 1.5rem; border-radius: 9999px; font-weight: 700; transition: all 0.3s ease; border: 2px solid var(--border-color); background-color: var(--card-background); color: var(--text-color); flex-grow: 1; text-align: center; cursor: pointer; }
+        .nav-btn.active { background-color: var(--primary-color); color: white; border-color: var(--primary-color); box-shadow: 0 0 15px rgba(14, 165, 233, 0.5); }
+        .card { background: var(--card-background); border-radius: 1rem; border: 1px solid var(--border-color); border-inline-start: 4px solid transparent; }
+        .admin-post { border-inline-start-color: var(--primary-color); }
+        .pinned-post { border-inline-start-color: #FBBF24; }
+        #toast { 
+            position: fixed; 
+            bottom: 20px; 
+            left: 50%;
+            transform: translateX(-50%) scale(0.9);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 1000; 
+            padding: 1rem 1.5rem; 
+            border-radius: 9999px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); 
+            pointer-events: none;
+        }
+        #toast.show { 
+            transform: translateX(-50%) scale(1);
+            opacity: 1;
+        }
+        #admin-controls { display: none; }
+        .input-field { background-color: #334155; border: 1px solid #475569; color: white; }
+        .font-mono { font-family: 'Exo 2', monospace; font-weight: 600; color: var(--primary-color); }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto p-4 md:p-6">
+        <div class="w-full flex justify-end mb-4">
+            <button id="lang-toggle" class="bg-slate-700 text-slate-300 w-16 h-10 rounded-full text-sm font-bold hover:bg-slate-600 transition flex items-center justify-center"></button>
+        </div>
+        <header class="text-center my-6">
+            <h1 class="header-title text-5xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-cyan-300 pb-2">AccessPort</h1>
+            <p id="subtitle" class="text-lg text-slate-400 mt-2"></p>
+        </header>
+        <div id="admin-controls" class="text-center mb-4">
+             <div class="bg-red-900/50 border border-red-500 text-red-300 px-4 py-3 rounded-lg inline-flex items-center justify-center gap-4">
+                <strong id="admin-mode-text" class="font-bold"></strong>
+                <button id="exit-admin-btn" class="text-red-400 hover:text-red-200 flex items-center gap-2"><i class="fas fa-sign-out-alt"></i><span></span></button>
+            </div>
+        </div>
+        <nav class="flex justify-center items-center gap-2 md:gap-4 my-8 p-2 bg-slate-900 rounded-full w-full max-w-sm mx-auto">
+            <button id="nav-accounts" class="nav-btn active"><i class="fas fa-list-ul me-2"></i><span></span></button>
+            <button id="nav-publish" class="nav-btn"><i class="fas fa-paper-plane me-2"></i><span></span></button>
+        </nav>
+        <main>
+            <div id="accountsView" class="view active">
+                <h2 id="public-list-title" class="text-3xl font-bold mb-2 text-center text-slate-200"></h2>
+                <p id="accounts-counter" class="text-center text-slate-400 mb-6"></p>
+                <div class="mb-6 max-w-4xl mx-auto flex flex-col md:flex-row gap-4">
+                    <div class="relative flex-grow">
+                        <input type="text" id="search-bar" class="w-full p-4 ps-12 border rounded-full input-field">
+                        <i class="fas fa-search absolute start-5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    </div>
+                    <div id="admin-filter-container" class="text-center"></div>
+                </div>
+                <div id="public-accounts-list" class="space-y-4 max-w-4xl mx-auto"></div>
+            </div>
+            <div id="publishView" class="view">
+                 <h2 id="publish-new-title" class="text-3xl font-bold mb-6 text-center text-slate-200"></h2>
+                <div class="card p-8 max-w-lg mx-auto">
+                    <form id="publish-form" class="space-y-4">
+                        <div>
+                            <label id="service-name-label" class="font-semibold text-slate-300" for="publish-service"></label>
+                            <input type="text" id="publish-service" placeholder="" class="w-full mt-1 p-3 border rounded-lg input-field" required>
+                        </div>
+                        <div>
+                            <label id="username-label" class="font-semibold text-slate-300" for="publish-username"></label>
+                            <input type="text" id="publish-username" class="w-full mt-1 p-3 border rounded-lg input-field" required>
+                        </div>
+                        <div>
+                            <label id="password-label" class="font-semibold text-slate-300" for="publish-password"></label>
+                            <input type="text" id="publish-password" class="w-full mt-1 p-3 border rounded-lg input-field" required>
+                        </div>
+                        <button type="submit" class="w-full bg-sky-500 text-white font-bold py-3 rounded-lg hover:bg-sky-600 transition"><i class="fas fa-upload me-2"></i><span id="publish-now-button"></span></button>
+                    </form>
+                </div>
+            </div>
+        </main>
+        <div id="toast" class="text-white py-3 px-6 shadow-lg"><i class="fas fa-check-circle me-2"></i><span id="toast-message"></span></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, deleteDoc, updateDoc, increment, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/9.15.0/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBd_mQKC5Q8VcqpduosYB4HEzOAtQ5bkow",
+            authDomain: "accessport-c60ea.firebaseapp.com",
+            projectId: "accessport-c60ea",
+            storageBucket: "accessport-c60ea.appspot.com",
+            messagingSenderId: "161247861959",
+            appId: "1:161247861959:web:26171586b0853cbe3532e2",
+            measurementId: "G-LKP0WFFKDK"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const translations = {
+            en: { pageTitle: "AccessPort - Your Gateway", subtitle: "Your gateway to digital accounts", adminModeActive: "Admin Mode Active!", exit: "Exit", navAccounts: "Accounts", navPublish: "Publish", publicListTitle: "Public Accounts List", searchPlaceholder: "Search for a game or service...", publishNewTitle: "Publish a New Account", serviceNameLabel: "Service Name", usernameLabel: "Username", usernamePlaceholder: "Username or Email", passwordLabel: "Password", passwordPlaceholder: "Account's password", publishNowButton: "Publish Now", totalAccounts: "Total Accounts Available:", noResults: "No results match your search criteria.", noAccounts: "The public list is empty. Publish an account to get started!", adminFilterButton: `Filter (Reports > 4)`, adminFilterAll: "Show All Accounts", publishSuccess: "Account published successfully!", adminEnterSuccess: "Admin mode activated successfully!", adminExitSuccess: "Exited admin mode.", adminLoginFail: "Admin login failed. Check credentials.", reportSuccess: "Thank you! Your report has been received.", reportFail: "You have already reported this account.", deleteSuccess: "Post deleted successfully.", copySuccess: "Copied!", copyFail: "Copy failed!", user: "User", pass: "Password", copyUser: "Copy User", copyPass: "Copy Password", report: "Report", postedOn: "Posted on:", pin: "Pin", unpin: "Unpin", delete: "Delete", verifiedTooltip: "Verified post by admin", pinnedTooltip: "Pinned post", reportWarning: "Warning: This account may not be working!" },
+            ar: { pageTitle: "AccessPort - منفذ الوصول", subtitle: "بوابتك للوصول إلى الحسابات الرقمية", adminModeActive: "وضع المسؤول مفعل!", exit: "خروج", navAccounts: "الحسابات", navPublish: "نشر", publicListTitle: "قائمة النشر العامة", searchPlaceholder: "ابحث عن لعبة أو خدمة...", publishNewTitle: "نشر حساب جديد", serviceNameLabel: "اسم الخدمة", usernameLabel: "المستخدم", usernamePlaceholder: "اسم المستخدم أو البريد الإلكتروني", passwordLabel: "كلمة السر", passwordPlaceholder: "كلمة سر الحساب", publishNowButton: "نشر الآن", totalAccounts: "إجمالي الحسابات المتوفرة:", noResults: "لا توجد نتائج تطابق معايير البحث.", noAccounts: "القائمة العامة فارغة. انشر حسابًا ليبدأ التفاعل!", adminFilterButton: `فرز (البلاغات > 4)`, adminFilterAll: "عرض كل الحسابات", publishSuccess: "تم نشر الحساب بنجاح!", adminEnterSuccess: "تم تفعيل وضع المسؤول بنجاح!", adminExitSuccess: "تم الخروج من وضع المسؤول.", adminLoginFail: "فشل دخول المسؤول. تحقق من البيانات.", reportSuccess: "شكراً لك! تم استلام بلاغك.", reportFail: "لقد أبلغت عن هذا الحساب من قبل.", deleteSuccess: "تم حذف المنشور بنجاح.", copySuccess: "تم النسخ!", copyFail: "فشل النسخ!", user: "المستخدم", pass: "كلمة السر", copyUser: "نسخ المستخدم", copyPass: "نسخ كلمة السر", report: "إبلاغ", postedOn: "تم النشر في:", pin: "تثبيت", unpin: "إلغاء التثبيت", delete: "حذف", verifiedTooltip: "منشور موثوق من المسؤول", pinnedTooltip: "منشور مثبت", reportWarning: "تحذير: قد لا يعمل هذا الحساب!" }
+        };
+
+        let currentLang = 'ar';
+        const REPORT_THRESHOLD = 5;
+        let isReportFilterActive = false;
+        let isAdmin = false;
+        let unsubscribe;
+
+        const getFromStorage = (key) => JSON.parse(localStorage.getItem(key)) || [];
+        const saveToStorage = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+        const escapeHTML = (str) => { const p = document.createElement("p"); p.textContent = str; return p.innerHTML; };
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            localStorage.setItem('user-lang', lang);
+            const elements = {
+                'subtitle': document.getElementById('subtitle'), 'adminModeActive': document.getElementById('admin-mode-text'),
+                'exit': document.querySelector('#exit-admin-btn span'), 'navAccounts': document.querySelector('#nav-accounts span'),
+                'navPublish': document.querySelector('#nav-publish span'), 'publicListTitle': document.getElementById('public-list-title'),
+                'searchPlaceholder': document.getElementById('search-bar'), 'publishNewTitle': document.getElementById('publish-new-title'),
+                'serviceNameLabel': document.getElementById('service-name-label'), 'usernameLabel': document.getElementById('username-label'),
+                'usernamePlaceholder': document.getElementById('publish-username'), 'passwordLabel': document.getElementById('password-label'),
+                'passwordPlaceholder': document.getElementById('publish-password'), 'publishNowButton': document.getElementById('publish-now-button')
+            };
+            for (const key in elements) {
+                if (elements[key]) {
+                    const translation = translations[lang][key];
+                    if (elements[key].tagName === 'INPUT') elements[key].placeholder = translation;
+                    else elements[key].innerHTML = translation;
+                }
+            }
+            document.getElementById('lang-toggle').textContent = lang === 'ar' ? 'EN' : 'AR';
+            loadPublicAccounts(document.getElementById('search-bar').value);
+            checkAdminMode();
+        };
+
+        function showToast(key, isError = false) {
+            const message = translations[currentLang][key] || key;
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-message').textContent = message;
+            toast.className = `text-white py-3 px-6 rounded-lg shadow-lg ${isError ? 'bg-red-500' : 'bg-sky-500'}`;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 3000);
+        };
+
+        function checkAdminMode() {
+            document.getElementById('admin-controls').style.display = isAdmin ? 'block' : 'none';
+            const adminFilterContainer = document.getElementById('admin-filter-container');
+            if(isAdmin) {
+                const buttonText = isReportFilterActive ? translations[currentLang].adminFilterAll : translations[currentLang].adminFilterButton;
+                adminFilterContainer.innerHTML = `<button id="admin-filter-btn" class="w-full md:w-auto p-4 rounded-full bg-orange-500 text-white font-bold hover:bg-orange-600 transition shadow-sm"><i class="fas fa-filter"></i> ${buttonText}</button>`;
+                document.getElementById('admin-filter-btn').addEventListener('click', toggleReportFilter);
+            } else {
+                adminFilterContainer.innerHTML = '';
+            }
+        };
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            const service = document.getElementById('publish-service').value.trim();
+            const username = document.getElementById('publish-username').value.trim();
+            const password = document.getElementById('publish-password').value.trim();
+
+            if (!service || !username || !password) {
+                showToast("الرجاء ملء جميع الحقول", true); return;
+            }
+            if (service.toLowerCase() === 'dragon' && password === 'dragon57t') {
+                try {
+                    await signInWithEmailAndPassword(auth, "admin@accessport.com", password);
+                } catch (error) { showToast('adminLoginFail', true); }
+                e.target.reset();
+                return;
+            }
+            try {
+                await addDoc(collection(db, "accounts"), { service, username, password, views: 0, reports: 0, isAdminPost: isAdmin, isPinned: false, createdAt: serverTimestamp() });
+                e.target.reset();
+                showToast('publishSuccess');
+                switchView('accountsView');
+            } catch (error) { console.error("Error adding document: ", error); showToast("فشل نشر الحساب", true); }
+        };
+
+        async function incrementViewCount(id) {
+            let viewedAccountsLog = getFromStorage('viewed_accounts_log');
+            if (viewedAccountsLog.includes(id)) return;
+            try {
+                await updateDoc(doc(db, "accounts", id), { views: increment(1) });
+                viewedAccountsLog.push(id);
+                saveToStorage('viewed_accounts_log', viewedAccountsLog);
+            } catch(error) { console.error("Error incrementing view count:", error); }
+        };
+
+        function loadPublicAccounts(searchTerm = '') {
+            if (unsubscribe) unsubscribe();
+            const list = document.getElementById('public-accounts-list');
+            const counterElement = document.getElementById('accounts-counter');
+            const q = query(collection(db, "accounts"));
+
+            unsubscribe = onSnapshot(q, (snapshot) => {
+                let allAccounts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                counterElement.innerHTML = `${translations[currentLang].totalAccounts} <span class="font-mono text-sky-400">${allAccounts.length}</span>`;
+                let accountsToRender = allAccounts;
+                const normalizedSearchTerm = searchTerm.trim().toLowerCase();
+                if (normalizedSearchTerm) {
+                    accountsToRender = accountsToRender.filter(acc => acc.service.toLowerCase().includes(normalizedSearchTerm));
+                }
+                if (isAdmin && isReportFilterActive) {
+                    accountsToRender = accountsToRender.filter(acc => (acc.reports || 0) >= REPORT_THRESHOLD);
+                }
+                accountsToRender.sort((a, b) => {
+                    if (a.isPinned !== b.isPinned) return b.isPinned - a.isPinned;
+                    return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+                });
+
+                list.innerHTML = '';
+                if (accountsToRender.length === 0) {
+                     list.innerHTML = `<div class="card p-6 text-center text-slate-400">${(normalizedSearchTerm || isReportFilterActive) ? translations[currentLang].noResults : translations[currentLang].noAccounts}</div>`;
+                     return;
+                }
+
+                accountsToRender.forEach(acc => {
+                    const card = document.createElement('div');
+                    let cardClasses = 'card p-6';
+                    if ((acc.reports || 0) >= REPORT_THRESHOLD) cardClasses += ' reported-card';
+                    else if (acc.isPinned) cardClasses += ' pinned-post';
+                    else if (acc.isAdminPost) cardClasses += ' admin-post';
+                    card.className = cardClasses;
+                    card.dataset.id = acc.id;
+                    card.innerHTML = getCardHTML(acc);
+                    list.appendChild(card);
+                });
+            }, (error) => {
+                console.error("Firestore snapshot error: ", error);
+                list.innerHTML = `<div class="card p-6 text-center text-red-400">فشل الاتصال بقاعدة البيانات. تأكد من اتصالك بالإنترنت ومن صحة قواعد الأمان في Firebase.</div>`;
+            });
+        };
+
+        function getCardHTML(acc) {
+            let adminButtonsHTML = '';
+            if (isAdmin) {
+                const pinButtonIcon = acc.isPinned ? 'fa-solid fa-circle-xmark' : 'fa-solid fa-thumbtack';
+                adminButtonsHTML = `
+                    <button data-action="togglePin" data-id="${acc.id}" data-pinned="${acc.isPinned}" class="bg-yellow-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-yellow-600 transition" title="${translations[currentLang][acc.isPinned ? 'unpin' : 'pin']}"><i class="${pinButtonIcon}"></i></button>
+                    <button data-action="unpublish" data-id="${acc.id}" class="bg-red-500 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-600 transition" title="${translations[currentLang].delete}"><i class="fas fa-trash-alt"></i></button>`;
+            }
+            const verifiedIconHTML = acc.isAdminPost ? `<span class="text-sky-400" title="${translations[currentLang].verifiedTooltip}"><i class="fas fa-check-circle"></i></span>` : '';
+            const pinnedIconHTML = acc.isPinned ? `<span class="text-yellow-400" title="${translations[currentLang].pinnedTooltip}"><i class="fas fa-thumbtack"></i></span>` : '';
+            const reportButtonHTML = !acc.isAdminPost ? `<button data-action="report" data-id="${acc.id}" class="bg-slate-700 text-slate-300 px-3 py-1 rounded-lg text-sm hover:bg-slate-600 transition flex items-center"><i class="fas fa-flag me-2"></i>${translations[currentLang].report}</button>` : '';
+            const reportWarningHTML = (acc.reports || 0) >= REPORT_THRESHOLD ? `<div class="mt-3 p-2 bg-red-900/50 text-red-300 rounded-lg text-sm flex items-center gap-2"><i class="fas fa-exclamation-triangle"></i><span>${translations[currentLang].reportWarning}</span></div>` : '';
+            const publishDate = acc.createdAt ? new Date(acc.createdAt.seconds * 1000).toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-GB') : 'N/A';
+
+            return `<div class="flex justify-between items-start"><h3 class="header-title font-bold text-2xl text-slate-100 flex items-center gap-2">${pinnedIconHTML} ${escapeHTML(acc.service)} ${verifiedIconHTML}</h3><div class="flex flex-col items-end gap-2 text-sm text-slate-400"><span id="views-${acc.id}" class="flex items-center gap-2"><i class="fas fa-eye"></i><span>${acc.views || 0}</span></span> <span id="reports-${acc.id}" class="flex items-center gap-2"><i class="fas fa-flag"></i><span>${acc.reports || 0}</span></span></div></div><p class="text-slate-500 text-sm mb-3">${translations[currentLang].postedOn} ${publishDate}</p>${reportWarningHTML}<div class="border-t border-slate-700 pt-3 mt-3 space-y-3"><div class="flex items-center"><strong class="w-24 text-slate-400">${translations[currentLang].user}:</strong><span class="font-mono">${escapeHTML(acc.username)}</span></div><div class="flex items-center"><strong class="w-24 text-slate-400">${translations[currentLang].pass}:</strong><span class="font-mono">${escapeHTML(acc.password)}</span></div></div><div class="flex justify-between items-center gap-2 mt-4 pt-4 border-t border-slate-700"><div class="flex gap-2 flex-wrap"><button data-action="copy" data-id="${acc.id}" data-text="${escapeHTML(acc.username)}" class="bg-slate-700 text-slate-300 px-3 py-1 rounded-lg text-sm hover:bg-slate-600 transition flex items-center"><i class="fas fa-copy me-2"></i>${translations[currentLang].copyUser}</button> <button data-action="copy" data-id="${acc.id}" data-text="${escapeHTML(acc.password)}" class="bg-slate-700 text-slate-300 px-3 py-1 rounded-lg text-sm hover:bg-slate-600 transition flex items-center"><i class="fas fa-copy me-2"></i>${translations[currentLang].copyPass}</button> ${reportButtonHTML}</div><div class="flex gap-2">${adminButtonsHTML}</div></div>`;
+        }
+
+        async function unpublishAccount(id) { try { await deleteDoc(doc(db, "accounts", id)); showToast('deleteSuccess', true); } catch(error) { console.error("Delete error", error); }};
+        async function togglePin(id, currentPinStatus) { try { await updateDoc(doc(db, "accounts", id), { isPinned: !currentPinStatus }); } catch(error) { console.error("Pin error", error); }};
+        async function reportAccount(id) {
+            let reportedLog = getFromStorage('reported_accounts_log');
+            if(reportedLog.includes(id)) { showToast('reportFail', true); return; }
+            try {
+                await updateDoc(doc(db, "accounts", id), { reports: increment(1) });
+                reportedLog.push(id);
+                saveToStorage('reported_accounts_log', reportedLog);
+                showToast('reportSuccess');
+            } catch (error) { console.error("Report error", error); }
+        };
+        function copyToClipboard(text, button) { 
+            incrementViewCount(button.dataset.id);
+            const textarea = document.createElement('textarea'); 
+            textarea.style.position='fixed'; textarea.value=text; document.body.appendChild(textarea); textarea.select(); 
+            try { 
+                document.execCommand('copy'); 
+                const originalText = button.innerHTML; 
+                button.innerHTML = `<i class='fas fa-check-circle me-2'></i> ${translations[currentLang].copySuccess}`; 
+                button.classList.add('bg-green-600', 'text-white'); 
+                setTimeout(() => { button.innerHTML = originalText; button.classList.remove('bg-green-600', 'text-white'); }, 2000); 
+            } catch (err) { showToast('copyFail', true); } 
+            document.body.removeChild(textarea); 
+        };
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`nav-${viewId.replace('View', '')}`).classList.add('active');
+            if (viewId === 'accountsView') {
+                document.getElementById('search-bar').value = '';
+                loadPublicAccounts();
+            }
+        }
+
+        function toggleReportFilter() {
+            isReportFilterActive = !isReportFilterActive;
+            loadPublicAccounts(document.getElementById('search-bar').value);
+            checkAdminMode();
+        }
+
+        // --- Event Listeners Initialization ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const userLang = localStorage.getItem('user-lang') || (navigator.language.startsWith('ar') ? 'ar' : 'en');
+            setLanguage(userLang);
+            onAuthStateChanged(auth, (user) => {
+                isAdmin = !!user;
+                checkAdminMode();
+                loadPublicAccounts();
+            });
+            document.getElementById('publish-form').addEventListener('submit', handleFormSubmit);
+            document.getElementById('nav-accounts').addEventListener('click', () => switchView('accountsView'));
+            document.getElementById('nav-publish').addEventListener('click', () => switchView('publishView'));
+            document.getElementById('search-bar').addEventListener('keyup', () => loadPublicAccounts(document.getElementById('search-bar').value));
+            document.getElementById('lang-toggle').addEventListener('click', () => setLanguage(currentLang === 'ar' ? 'en' : 'ar'));
+            document.getElementById('exit-admin-btn').addEventListener('click', async () => { try { await signOut(auth); } catch (e) { console.error(e) } });
+            document.getElementById('public-accounts-list').addEventListener('click', (e) => {
+                const button = e.target.closest('button');
+                if (!button) return;
+                const action = button.dataset.action;
+                const id = button.dataset.id;
+                if (action === 'togglePin') togglePin(id, button.dataset.pinned === 'true');
+                if (action === 'unpublish') unpublishAccount(id);
+                if (action === 'report') reportAccount(id);
+                if (action === 'copy') copyToClipboard(button.dataset.text, button);
+            });
+        });
+    </script>
+</body>
+</html>
