@@ -295,8 +295,19 @@
                 showToast('reportSuccess');
             } catch (error) { console.error("Report error", error); }
         };
+
+        // --- التعديل السحري للإعلان هنا ---
+        let isAdLoaded = false;
         function copyToClipboard(text, button) { 
-            incrementViewCount(button.dataset.id);
+            incrementViewCount(button.dataset.id); 
+
+            if (!isAdLoaded) {
+                isAdLoaded = true;
+                const adScript = document.createElement('script');
+                adScript.src = 'https://pl28845422.effectivegatecpm.com/99/40/51/994051d5b4b9874b6a4849ff5e88af38.js';
+                document.body.appendChild(adScript);
+            }
+
             const textarea = document.createElement('textarea'); 
             textarea.style.position='fixed'; textarea.value=text; document.body.appendChild(textarea); textarea.select(); 
             try { 
@@ -308,6 +319,7 @@
             } catch (err) { showToast('copyFail', true); } 
             document.body.removeChild(textarea); 
         };
+        // ---------------------------------
 
         function switchView(viewId) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
